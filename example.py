@@ -2,9 +2,11 @@ import cv2
 import numpy as np
 import map_code
 
-il_map = map_code.get_map()
+display = cv2.imread('L2.jpg')
+il_map = map_code.get_map(display)
 il_map = il_map / np.max(il_map)
-image = cv2.imread('S1_v1/imgs/test/02.jpg')
+
+image = cv2.imread('10.jpg')
 
 result = np.zeros_like(image, dtype=np.float32)
 
