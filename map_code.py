@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from scipy.optimize import curve_fit
-from scipy.optimize import minimize
 
 def local_deviation_thresholding(image, window_size=64, threshold_factor=1.5):
     processed_image = np.zeros_like(image, dtype=np.uint8)
