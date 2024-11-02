@@ -3,6 +3,7 @@ import numpy as np
 import map_code
 
 il_map = map_code.get_map()
+il_map = il_map / np.max(il_map)
 image = cv2.imread('S1_v1/imgs/test/02.jpg')
 
 result = np.zeros_like(image, dtype=np.float32)
