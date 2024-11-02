@@ -3,51 +3,49 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 N = 256
-image = cv2.imread('L1.jpg')
-red_channel = image[:, :, 0]
-LEFT_SHIFT = 10
-RIGHT_SHIFT = 33
 
-def process_local_region(region):
-    hist, bin_edges = np.histogram(region.flatten(), bins=N, range=[0, N])
-
-    peak_value = np.max(hist)
-    peak_index = np.argmax(hist)
-
-    left_bound = peak_index + LEFT_SHIFT
-    right_bound = min(N, peak_index + RIGHT_SHIFT)
-
-    mask = (region >= left_bound) & (region <= right_bound)
-
-    filtered_region = np.zeros_like(region)
-    filtered_region[mask] = region[mask]
-    
-    return filtered_region
-
-def process_image_locally(image, region_size, N=256):
+def local_deviation_thresholding(image, window_size=64, threshold_factor=1.5):
+    binary_image = np.zeros_like(image, dtype=np.uint8)
     height, width = image.shape
-    processed_image = np.zeros_like(image)
 
-    for y in range(0, height, region_size):
-        for x in range(0, width, region_size):
-            y_end = min(y + region_size, height)
-            x_end = min(x + region_size, width)
+    # Проходимся по каждому окну изображения
+    for y in range(0, height, window_size):
+        for x in range(0, width, window_size):
+            # Извлекаем текущее окно
+            window = image[y:y+window_size, x:x+window_size]
+            
+            # Рассчитываем среднее и стандартное отклонение для текущего окна
+            mean_intensity = np.mean(window)
+            std_intensity = np.std(window)
+            
+            # Определяем порог как среднее + коэффициент * стандартное отклонение
+            threshold = mean_intensity + threshold_factor * std_intensity
+            
+            # Применяем порог для создания бинарного окна
+            binary_window = (window > threshold)
+            
+            # Сохраняем бинаризованное окно в итоговое изображение
+            binary_image[y:y+window_size, x:x+window_size][binary_window] = window[binary_window]
 
-            region = image[y:y_end, x:x_end]
-            filtered_region = process_local_region(region)
-            processed_image[y:y_end, x:x_end] = filtered_region
-
-    return processed_image
+    return binary_image
 
 def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
     x, y = coords
     return A * np.exp(-((x - x0) ** 2 / (2 * sigma_x ** 2) + (y - y0) ** 2 / (2 * sigma_y ** 2)))
 
-def get_centroinds():
-    processed_image = process_image_locally(red_channel, region_size=64)
+def get_centroinds(green_channel):
+    processed_image = local_deviation_thresholding(green_channel)
+
+    cv2.imwrite("test_local.jpg", processed_image)
+
     image = cv2.medianBlur(processed_image, 7) 
 
+    cv2.imwrite("test_median.jpg", image)
+
     blurred_image = cv2.GaussianBlur(image, (13, 13), 0)
+
+    cv2.imwrite("test_blurred.jpg", blurred_image)
+
     _, thresh = cv2.threshold(blurred_image, 50, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -68,18 +66,21 @@ def get_centroinds():
 
     centroids = np.array(centroids)
     intensities = np.array(intensities)
-    #output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    #for c in centroids:
-    #    cv2.circle(output_image, (c[0], c[1]), 5, (0, 255, 0), -1)
-    #cv2.imwrite("centroids_clear.jpg", output_image)
+    output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    for c in centroids:
+        cv2.circle(output_image, (c[0], c[1]), 5, (0, 255, 0), -1)
+    cv2.imwrite("test_centr.jpg", output_image)
     return centroids, intensities
 
 def get_map():
-    centroids, intensities = get_centroinds()
+    image = cv2.imread('L1.jpg')
+    green_channel = image[:, :, 1]
+
+    centroids, intensities = get_centroinds(green_channel)
     x_data = centroids[:, 0]
     y_data = centroids[:, 1]
 
-    initial_guess = (1, np.mean(x_data), np.mean(y_data), 10, 10)
+    initial_guess = (1, np.mean(x_data), np.mean(y_data), 1000, 1000)
 
     popt, pcov = curve_fit(gaussian_2d, (x_data, y_data), intensities, p0=initial_guess)
     A_opt, x0_opt, y0_opt, sigma_x_opt, sigma_y_opt = popt
@@ -92,3 +93,5 @@ def get_map():
     Z = gaussian_2d((X, Y), A_opt, x0_opt, y0_opt, sigma_x_opt, sigma_y_opt)
     #np.save('mask.npy', Z)
     return Z
+Z = get_map()
+cv2.imwrite("test_map.jpg", (Z*255).astype(np.uint8))
