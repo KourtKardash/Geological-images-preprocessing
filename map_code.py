@@ -4,23 +4,6 @@ import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 
-def local_deviation_thresholding(image, window_size=64, threshold_factor=1.5):
-    processed_image = np.zeros_like(image, dtype=np.uint8)
-    height, width = image.shape
-
-    for y in range(0, height, window_size):
-        for x in range(0, width, window_size):
-            window = image[y:y+window_size, x:x+window_size]
-            
-            mean_intensity = np.mean(window)
-            std_intensity = np.std(window)
-            
-            threshold = mean_intensity + threshold_factor * std_intensity
-            binary_window = (window > threshold)            
-            processed_image[y:y+window_size, x:x+window_size][binary_window] = window[binary_window]
-
-    return processed_image
-
 def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
     x, y = coords
     return A * np.exp(-((x - x0) ** 2 / (2 * sigma_x ** 2) + (y - y0) ** 2 / (2 * sigma_y ** 2)))
@@ -46,7 +29,7 @@ def get_centroinds(green_channel, i):
     thresh = get_binary_image(blurred_image)
     cv2.imwrite(f"MiddleRes/thresh_{i}.jpg", thresh)
 
-    image = cv2.medianBlur(thresh, 7) 
+    image = cv2.medianBlur(thresh, 15) 
     cv2.imwrite(f"MiddleRes/median_{i}.jpg", image)
     
     #_, thresh = cv2.threshold(blurred_image, 40, 255, cv2.THRESH_BINARY)
@@ -56,13 +39,13 @@ def get_centroinds(green_channel, i):
     areas = np.array([cv2.contourArea(contour) for contour in contours])
     
     # Построение гистограммы
-    '''
+    
     plt.hist(areas, bins=500, color='blue', edgecolor='black')
     plt.xlabel("Площадь объекта")
     plt.ylabel("Частота")
     plt.title("Гистограмма площадей объектов")
-    plt.show()
-    '''
+    plt.savefig(f'MiddleRes/HistAreas_{i}.png')
+    
 
     centroids = []
     intensities = []
