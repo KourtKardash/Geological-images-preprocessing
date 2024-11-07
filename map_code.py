@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
-
 from scipy.optimize import curve_fit
+from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
 def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
@@ -23,7 +23,7 @@ def get_binary_image(image, window_size=64) :
             processed_image[y:y+window_size, x:x+window_size][binary_window] = 255
     return processed_image
 def get_centroinds(green_channel, i):
-    blurred_image = cv2.GaussianBlur(green_channel, (13, 13), 0)
+    blurred_image = cv2.GaussianBlur(green_channel, (15, 15), 0)
     cv2.imwrite(f"MiddleRes/blurred_{i}.jpg", blurred_image)
 
     thresh = get_binary_image(blurred_image)
@@ -31,26 +31,17 @@ def get_centroinds(green_channel, i):
 
     image = cv2.medianBlur(thresh, 15) 
     cv2.imwrite(f"MiddleRes/median_{i}.jpg", image)
-    
-    #_, thresh = cv2.threshold(blurred_image, 40, 255, cv2.THRESH_BINARY)
 
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     areas = np.array([cv2.contourArea(contour) for contour in contours])
-    
-    # Построение гистограммы
-    
-    plt.hist(areas, bins=500, color='blue', edgecolor='black')
-    plt.xlabel("Площадь объекта")
-    plt.ylabel("Частота")
-    plt.title("Гистограмма площадей объектов")
-    plt.savefig(f'MiddleRes/HistAreas_{i}.png')
-    
+    mean_number = np.mean(areas) - np.std(areas)
+    filtered_contours = [contour for contour, area in zip(contours, areas) if area >= mean_number]
 
     centroids = []
     intensities = []
 
-    for contour in contours:
+    for contour in filtered_contours:
         M = cv2.moments(contour)
         if M['m00'] != 0:
             cX = int(M['m10'] / M['m00'])
@@ -64,10 +55,15 @@ def get_centroinds(green_channel, i):
 
     centroids = np.array(centroids)
     intensities = np.array(intensities)
-
+    #print("start pca")
+    #pca = PCA(n_components=2)
+    #pca.fit(centroids)
+    #angle = np.arctan2(pca.components_[0, 1], pca.components_[0, 0])
+    #print(angle)
+    #print("end pca")
     output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     for c in centroids:
-        cv2.circle(output_image, (c[0], c[1]), 5, (0, 255, 0), -1)
+        cv2.circle(output_image, (c[0], c[1]), 5, (0, 0, 255), -1)
     cv2.imwrite(f"MiddleRes/centroids_{i}.jpg", output_image)
     return centroids, intensities
 
