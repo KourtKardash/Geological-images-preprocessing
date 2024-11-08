@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from scipy.optimize import curve_fit
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
 def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
@@ -23,14 +22,9 @@ def get_binary_image(image, window_size=128) :
             processed_image[y:y+window_size, x:x+window_size][binary_window] = 255
     return processed_image
 def get_centroinds(green_channel, i):
-    #blurred_image = cv2.GaussianBlur(green_channel, (15, 15), 0)
-    #cv2.imwrite(f"MiddleRes/blurred_{i}.jpg", blurred_image)
-
     thresh = get_binary_image(green_channel)
-    cv2.imwrite(f"MiddleRes/thresh_{i}.jpg", thresh)
 
     image = cv2.medianBlur(thresh, 15)
-    cv2.imwrite(f"MiddleRes/median_{i}.jpg", image)
 
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -56,10 +50,9 @@ def get_centroinds(green_channel, i):
     centroids = np.array(centroids)
     intensities = np.array(intensities)
 
-    output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    for c in centroids:
-        cv2.circle(output_image, (c[0], c[1]), 5, (0, 0, 255), -1)
-    cv2.imwrite(f"MiddleRes/centroids_{i}.jpg", output_image)
+    #output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    #for c in centroids:
+    #    cv2.circle(output_image, (c[0], c[1]), 5, (0, 0, 255), -1)
     return centroids, intensities
 
 def get_map(image, i):
