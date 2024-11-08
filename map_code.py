@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from scipy.optimize import curve_fit
-import matplotlib.pyplot as plt
 
 def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
     x, y = coords
