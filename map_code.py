@@ -2,10 +2,13 @@ import cv2
 import numpy as np
 from scipy.optimize import curve_fit
 
-def local_deviation_thresholding(image, window_size=64, threshold_factor=1.5):
+def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
+    x, y = coords
+    return A * np.exp(-((x - x0) ** 2 / (2 * sigma_x ** 2) + (y - y0) ** 2 / (2 * sigma_y ** 2)))
+
+def get_binary_image(image, window_size=128) :
     processed_image = np.zeros_like(image, dtype=np.uint8)
     height, width = image.shape
-
     for y in range(0, height, window_size):
         for x in range(0, width, window_size):
             window = image[y:y+window_size, x:x+window_size]
@@ -13,27 +16,25 @@ def local_deviation_thresholding(image, window_size=64, threshold_factor=1.5):
             mean_intensity = np.mean(window)
             std_intensity = np.std(window)
             
-            threshold = mean_intensity + threshold_factor * std_intensity
+            threshold = mean_intensity + 1.5*std_intensity
             binary_window = (window > threshold)            
-            processed_image[y:y+window_size, x:x+window_size][binary_window] = window[binary_window]
-
+            processed_image[y:y+window_size, x:x+window_size][binary_window] = 255
     return processed_image
+def get_centroinds(green_channel, i):
+    thresh = get_binary_image(green_channel)
 
-def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
-    x, y = coords
-    return A * np.exp(-((x - x0) ** 2 / (2 * sigma_x ** 2) + (y - y0) ** 2 / (2 * sigma_y ** 2)))
+    image = cv2.medianBlur(thresh, 15)
 
-def get_centroinds(green_channel):
-    processed_image = local_deviation_thresholding(green_channel)
-    image = cv2.medianBlur(processed_image, 7) 
-    blurred_image = cv2.GaussianBlur(image, (13, 13), 0)
-    _, thresh = cv2.threshold(blurred_image, 50, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    areas = np.array([cv2.contourArea(contour) for contour in contours])
+    mean_number = np.mean(areas) - 1.5*np.std(areas)
+    filtered_contours = [contour for contour, area in zip(contours, areas) if area >= mean_number]
 
     centroids = []
     intensities = []
 
-    for contour in contours:
+    for contour in filtered_contours:
         M = cv2.moments(contour)
         if M['m00'] != 0:
             cX = int(M['m10'] / M['m00'])
@@ -42,7 +43,7 @@ def get_centroinds(green_channel):
 
             mask = np.zeros_like(image)
             cv2.drawContours(mask, [contour], -1, color=255, thickness=-1)
-            mean_intensity = cv2.mean(image / 255, mask=mask)[0]
+            mean_intensity = cv2.mean(green_channel / 255, mask=mask)[0]
             intensities.append(mean_intensity)
 
     centroids = np.array(centroids)
@@ -50,14 +51,13 @@ def get_centroinds(green_channel):
 
     #output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     #for c in centroids:
-    #    cv2.circle(output_image, (c[0], c[1]), 5, (0, 255, 0), -1)
-    #cv2.imwrite("test_centr.jpg", output_image)
+    #    cv2.circle(output_image, (c[0], c[1]), 5, (0, 0, 255), -1)
     return centroids, intensities
 
-def get_map(image):
+def get_map(image, i):
     green_channel = image[:, :, 1]
 
-    centroids, intensities = get_centroinds(green_channel)
+    centroids, intensities = get_centroinds(green_channel,i)
     x_data = centroids[:, 0]
     y_data = centroids[:, 1]
 
