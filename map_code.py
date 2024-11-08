@@ -8,7 +8,7 @@ def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
     x, y = coords
     return A * np.exp(-((x - x0) ** 2 / (2 * sigma_x ** 2) + (y - y0) ** 2 / (2 * sigma_y ** 2)))
 
-def get_binary_image(image, window_size=64) :
+def get_binary_image(image, window_size=128) :
     processed_image = np.zeros_like(image, dtype=np.uint8)
     height, width = image.shape
     for y in range(0, height, window_size):
@@ -23,19 +23,19 @@ def get_binary_image(image, window_size=64) :
             processed_image[y:y+window_size, x:x+window_size][binary_window] = 255
     return processed_image
 def get_centroinds(green_channel, i):
-    blurred_image = cv2.GaussianBlur(green_channel, (15, 15), 0)
-    cv2.imwrite(f"MiddleRes/blurred_{i}.jpg", blurred_image)
+    #blurred_image = cv2.GaussianBlur(green_channel, (15, 15), 0)
+    #cv2.imwrite(f"MiddleRes/blurred_{i}.jpg", blurred_image)
 
-    thresh = get_binary_image(blurred_image)
+    thresh = get_binary_image(green_channel)
     cv2.imwrite(f"MiddleRes/thresh_{i}.jpg", thresh)
 
-    image = cv2.medianBlur(thresh, 15) 
+    image = cv2.medianBlur(thresh, 15)
     cv2.imwrite(f"MiddleRes/median_{i}.jpg", image)
 
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     areas = np.array([cv2.contourArea(contour) for contour in contours])
-    mean_number = np.mean(areas) - np.std(areas)
+    mean_number = np.mean(areas) - 1.5*np.std(areas)
     filtered_contours = [contour for contour, area in zip(contours, areas) if area >= mean_number]
 
     centroids = []
@@ -55,12 +55,7 @@ def get_centroinds(green_channel, i):
 
     centroids = np.array(centroids)
     intensities = np.array(intensities)
-    #print("start pca")
-    #pca = PCA(n_components=2)
-    #pca.fit(centroids)
-    #angle = np.arctan2(pca.components_[0, 1], pca.components_[0, 0])
-    #print(angle)
-    #print("end pca")
+
     output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     for c in centroids:
         cv2.circle(output_image, (c[0], c[1]), 5, (0, 0, 255), -1)
