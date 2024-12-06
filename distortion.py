@@ -2,12 +2,6 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-def load_centroids(file_path):
-    centroids = np.loadtxt(file_path, delimiter=',')
-    return centroids
-
-
 def match_centroids_to_grid_matrix(x_coords_rotated, y_coords_rotated, centroids, row, col, height, width, min_distance):
     matched = {}
     unused_centroids = centroids.tolist()
@@ -84,9 +78,6 @@ def match_centroids_to_grid_matrix(x_coords_rotated, y_coords_rotated, centroids
                 delta_x = nearest_centroid[0] - x
                 delta_y = nearest_centroid[1] - y
 
-        # Вывод результата
-    #for (x, y), centroid in matched.items():
-    #    print(f"Узел ({x}, {y}) -> Центроид {centroid}")
     return matched
 
 
@@ -125,10 +116,9 @@ def rotate_grid(x_coords, y_coords, central_centroid, tg_angle):
     return x_coords_rotated, y_coords_rotated
 
 
-def get_centroinds(green_channel, ind):
+def get_centroinds(green_channel):
     thresh = get_binary_image(green_channel)
     image = cv2.medianBlur(thresh, 9)
-    cv2.imwrite(f'MiddleRes/median_{ind}.png', image)
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     areas = np.array([cv2.contourArea(contour) for contour in contours])
@@ -202,7 +192,6 @@ def get_centroinds(green_channel, ind):
             cv2.circle(output_image, (c[0], c[1]), 5, (0,0,255), -1)
         else:
             cv2.circle(output_image, (c[0], c[1]), 5, (255,0,0), -1)
-    cv2.imwrite(f'MiddleRes/centroids_{ind}.png', output_image)
 
     return match_centroids_to_grid_matrix(x_coords_rotated, y_coords_rotated, centroids, start_row-1, start_col-1, height, width, min_distance)
 
@@ -219,12 +208,7 @@ def draw_grid(image, x_coords, y_coords, color=(0, 255, 0), thickness=1):
 
 
 image = cv2.imread('L5.jpg', cv2.IMREAD_COLOR)
-grid_to_centroid = get_centroinds(image[:, :, 1], 5)
-
-#centroid_image = cv2.imread('MiddleRes/centroids_5.png')
-#grid_image = draw_grid(centroid_image, x, y)
-
-#cv2.imwrite('grid_image_on_centroids_5.png', grid_image)
+grid_to_centroid = get_centroinds(image[:, :, 1])
 
 object_points = np.array([(x, y, 0) for (x, y) in grid_to_centroid.keys()], dtype=np.float32)
 image_points = np.array([value for value in grid_to_centroid.values()], dtype=np.float32)
@@ -243,10 +227,8 @@ new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(
     image_size
 )
 
-# Загружаем изображение
-for i in range (1,6):
-    image = cv2.imread(f"kedr3/4.{i}.jpg")
+image = cv2.imread("11.jpg")
 
-    undistorted_image = cv2.undistort(image, camera_matrix, dist_coeffs, None, new_camera_matrix)
+undistorted_image = cv2.undistort(image, camera_matrix, dist_coeffs, None, new_camera_matrix)
 
-    cv2.imwrite(f"kedr3_undistorced/4.{i}.jpg", undistorted_image)
+cv2.imwrite("11_out.jpg", undistorted_image)
