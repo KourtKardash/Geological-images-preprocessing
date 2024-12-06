@@ -1,9 +1,7 @@
 import cv2
 import numpy as np
-from scipy.interpolate import LinearNDInterpolator, CloughTocher2DInterpolator, RegularGridInterpolator
 from scipy.optimize import curve_fit
-from scipy.interpolate import Rbf
-import matplotlib.pyplot as plt
+from scipy.interpolate import CloughTocher2DInterpolator
 
 def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
     x, y = coords
@@ -23,13 +21,10 @@ def get_binary_image(image, window_size=128) :
             binary_window = (window > threshold)            
             processed_image[y:y+window_size, x:x+window_size][binary_window] = 255
     return processed_image
-def get_centroinds(green_channel, i):
+
+def get_centroinds(green_channel):
     thresh = get_binary_image(green_channel)
-    cv2.imwrite(f"MiddleRes/thresh_{i}.jpg", thresh)
-
-    image = cv2.medianBlur(thresh, 15)
-    cv2.imwrite(f"MiddleRes/median_{i}.jpg", image)
-
+    image = cv2.medianBlur(thresh, 9)
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     areas = np.array([cv2.contourArea(contour) for contour in contours])
@@ -52,24 +47,36 @@ def get_centroinds(green_channel, i):
             intensities.append(mean_intensity)
 
     centroids = np.array(centroids)
+    #np.savetxt('centroids1.txt', centroids, delimiter=',', fmt='%d')
     intensities = np.array(intensities)
 
-    output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    output_image = np.zeros_like(image)
+    output_image = cv2.cvtColor(output_image, cv2.COLOR_GRAY2BGR)
     for c in centroids:
-        cv2.circle(output_image, (c[0], c[1]), 5, (0, 0, 255), -1)
-    cv2.imwrite(f"MiddleRes/centroids_{i}.jpg", output_image)
+        cv2.circle(output_image, (c[0], c[1]), 1, (0, 0, 255), -1)
+    #cv2.imwrite(f'MiddleRes/centroids.png', output_image)
     return centroids, intensities
 
-def get_map(image, i):
+def get_map(image):
     green_channel = image[:, :, 1]
 
-    centroids, intensities = get_centroinds(green_channel,i)
+    centroids, intensities = get_centroinds(green_channel)
+    x_data = centroids[:, 0]
+    y_data = centroids[:, 1]
 
-    rows, cols = image.shape[:2]
-    tps = Rbf(centroids[:, 1], centroids[:, 0], intensities, function='thin_plate')
+    initial_guess = (1, np.mean(x_data), np.mean(y_data), 1000, 1000)
 
-    grid_x, grid_y = np.meshgrid(np.linspace(0, cols-1, cols//3), np.linspace(0, rows-1, rows//3))
+    popt, pcov = curve_fit(gaussian_2d, (x_data, y_data), intensities, p0=initial_guess, maxfev=10000)
 
-    il_map = tps(grid_y, grid_x)
-    il_map = cv2.resize(il_map, (cols, rows), interpolation=cv2.INTER_CUBIC)
-    return il_map
+    A_opt, x0_opt, y0_opt, sigma_x_opt, sigma_y_opt = popt
+
+    height, width = image.shape[:2]
+    x = np.linspace(0, width - 1, width)
+    y = np.linspace(0, height - 1, height)
+    X, Y = np.meshgrid(x, y)
+
+    Z = gaussian_2d((X, Y), A_opt, x0_opt, y0_opt, sigma_x_opt, sigma_y_opt)
+    
+    #np.save('mask.npy', Z)
+    return Z
+
