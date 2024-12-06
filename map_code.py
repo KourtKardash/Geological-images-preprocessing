@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
+from scipy.interpolate import LinearNDInterpolator, CloughTocher2DInterpolator, RegularGridInterpolator
 from scipy.optimize import curve_fit
+from scipy.interpolate import Rbf
+import matplotlib.pyplot as plt
 
 def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
     x, y = coords
@@ -22,8 +25,10 @@ def get_binary_image(image, window_size=128) :
     return processed_image
 def get_centroinds(green_channel, i):
     thresh = get_binary_image(green_channel)
+    cv2.imwrite(f"MiddleRes/thresh_{i}.jpg", thresh)
 
     image = cv2.medianBlur(thresh, 15)
+    cv2.imwrite(f"MiddleRes/median_{i}.jpg", image)
 
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -49,29 +54,22 @@ def get_centroinds(green_channel, i):
     centroids = np.array(centroids)
     intensities = np.array(intensities)
 
-    #output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    #for c in centroids:
-    #    cv2.circle(output_image, (c[0], c[1]), 5, (0, 0, 255), -1)
+    output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    for c in centroids:
+        cv2.circle(output_image, (c[0], c[1]), 5, (0, 0, 255), -1)
+    cv2.imwrite(f"MiddleRes/centroids_{i}.jpg", output_image)
     return centroids, intensities
 
 def get_map(image, i):
     green_channel = image[:, :, 1]
 
     centroids, intensities = get_centroinds(green_channel,i)
-    x_data = centroids[:, 0]
-    y_data = centroids[:, 1]
 
-    initial_guess = (1, np.mean(x_data), np.mean(y_data), 1000, 1000)
+    rows, cols = image.shape[:2]
+    tps = Rbf(centroids[:, 1], centroids[:, 0], intensities, function='thin_plate')
 
-    popt, pcov = curve_fit(gaussian_2d, (x_data, y_data), intensities, p0=initial_guess)
+    grid_x, grid_y = np.meshgrid(np.linspace(0, cols-1, cols//3), np.linspace(0, rows-1, rows//3))
 
-    A_opt, x0_opt, y0_opt, sigma_x_opt, sigma_y_opt = popt
-
-    height, width = image.shape[:2]
-    x = np.linspace(0, width - 1, width)
-    y = np.linspace(0, height - 1, height)
-    X, Y = np.meshgrid(x, y)
-
-    Z = gaussian_2d((X, Y), A_opt, x0_opt, y0_opt, sigma_x_opt, sigma_y_opt)
-    #np.save('mask.npy', Z)
-    return Z
+    il_map = tps(grid_y, grid_x)
+    il_map = cv2.resize(il_map, (cols, rows), interpolation=cv2.INTER_CUBIC)
+    return il_map
