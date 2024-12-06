@@ -16,6 +16,7 @@ image = cv2.imread("39.jpg")
 mirror = cv2.imread('mirror3200.jpg')
 mirror = cv2.cvtColor(mirror, cv2.COLOR_BGR2GRAY)
 mirror = mirror / 255
+mirror = mirror/np.max(mirror)
 mask_3ch = np.repeat(mirror[:, :, np.newaxis], 3, axis=2)
 initial_params = [1, 0.5]
 bounds = [(0.1, 2), (0.01, 1)]
