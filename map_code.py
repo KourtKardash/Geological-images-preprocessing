@@ -22,9 +22,11 @@ def get_binary_image(image, window_size=128) :
             processed_image[y:y+window_size, x:x+window_size][binary_window] = 255
     return processed_image
 
-def get_centroinds(green_channel):
+def get_centroinds(green_channel, i):
     thresh = get_binary_image(green_channel)
+    cv2.imwrite(f'MiddleRes/thresh{i}.png', thresh)
     image = cv2.medianBlur(thresh, 9)
+    cv2.imwrite(f'MiddleRes/image{i}.png', image)
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     areas = np.array([cv2.contourArea(contour) for contour in contours])
@@ -50,17 +52,40 @@ def get_centroinds(green_channel):
     #np.savetxt('centroids1.txt', centroids, delimiter=',', fmt='%d')
     intensities = np.array(intensities)
 
-    output_image = np.zeros_like(image)
+    output_image = image
     output_image = cv2.cvtColor(output_image, cv2.COLOR_GRAY2BGR)
     for c in centroids:
-        cv2.circle(output_image, (c[0], c[1]), 1, (0, 0, 255), -1)
-    #cv2.imwrite(f'MiddleRes/centroids.png', output_image)
+        cv2.circle(output_image, (c[0], c[1]), 7, (0, 0, 255), -1)
+    cv2.imwrite(f'MiddleRes/centroids{i}.png', output_image)
     return centroids, intensities
 
-def get_map(image):
+def get_map(image, i):
+    red_channel = image[:, :, 0]
     green_channel = image[:, :, 1]
+    blue_channel = image[:, :, 2]
+    height, width = red_channel.shape
 
-    centroids, intensities = get_centroinds(green_channel)
+    center_x_min = int(width * 0.4)
+    center_x_max = int(width * 0.6)
+    center_y_min = int(height * 0.4)
+    center_y_max = int(height * 0.6)
+
+    min_red = np.min(red_channel[center_x_min:center_x_max, center_y_min:center_y_max])
+    min_green = np.min(green_channel[center_x_min:center_x_max, center_y_min:center_y_max])
+    min_blue = np.min(blue_channel[center_x_min:center_x_max, center_y_min:center_y_max])
+    
+    min_intens_arr = [min_red, min_green, min_blue]
+    min_intens_index = np.argmin(min_intens_arr)
+    chosen_channel = None
+
+    if min_intens_index == 0:
+        chosen_channel = red_channel
+    elif min_intens_index == 1:
+        chosen_channel = green_channel
+    else:
+        chosen_channel = blue_channel
+
+    centroids, intensities = get_centroinds(chosen_channel, i)
     x_data = centroids[:, 0]
     y_data = centroids[:, 1]
 
