@@ -14,4 +14,4 @@ mirror1 = mirror + delta
 
 mask_3ch = np.repeat(mirror1[:, :, np.newaxis], 3, axis=2)
 corrected_im = image / mask_3ch
-cv2.imwrite(f"39_mirror_51.jpg", np.uint8(corrected_im))
+cv2.imwrite(f"39_out_mirror.jpg", np.uint8(corrected_im))

@@ -1,36 +1,38 @@
 import cv2
 import numpy as np
 from scipy.optimize import curve_fit
-from scipy.interpolate import CloughTocher2DInterpolator
 
 def gaussian_2d(coords, A, x0, y0, sigma_x, sigma_y):
     x, y = coords
     return A * np.exp(-((x - x0) ** 2 / (2 * sigma_x ** 2) + (y - y0) ** 2 / (2 * sigma_y ** 2)))
 
-def get_binary_image(image, window_size=128) :
-    processed_image = np.zeros_like(image, dtype=np.uint8)
-    height, width = image.shape
+def get_binary_image(chosen_channel, add_channel_1, add_channel_2, window_size=128) :
+    processed_image = np.zeros_like(chosen_channel, dtype=np.uint8)
+    height, width = chosen_channel.shape
     for y in range(0, height, window_size):
         for x in range(0, width, window_size):
-            window = image[y:y+window_size, x:x+window_size]
-            
+            window = chosen_channel[y:y+window_size, x:x+window_size]
+            add_window_1 = add_channel_1[y:y+window_size, x:x+window_size]
+            add_window_2 = add_channel_2[y:y+window_size, x:x+window_size]
+
             mean_intensity = np.mean(window)
             std_intensity = np.std(window)
             
-            threshold = mean_intensity + 1.5*std_intensity
-            binary_window = (window > threshold)            
+            threshold = mean_intensity + std_intensity
+
+            binary_window = ((window > threshold) & (add_window_1 < np.mean(add_window_1) + \
+                2*np.std(add_window_1)) & (add_window_2 < np.mean(add_window_2) + 2*np.std(add_window_2)))
             processed_image[y:y+window_size, x:x+window_size][binary_window] = 255
     return processed_image
 
-def get_centroinds(green_channel, i):
-    thresh = get_binary_image(green_channel)
-    cv2.imwrite(f'MiddleRes/thresh{i}.png', thresh)
+def get_centroinds(chosen_channel, add_channel_1, add_channel_2):
+    thresh = get_binary_image(chosen_channel, add_channel_1, add_channel_2)
     image = cv2.medianBlur(thresh, 9)
-    cv2.imwrite(f'MiddleRes/image{i}.png', image)
+
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     areas = np.array([cv2.contourArea(contour) for contour in contours])
-    mean_number = np.mean(areas) - 1.5*np.std(areas)
+    mean_number = np.mean(areas) - 1.5 * np.std(areas)
     filtered_contours = [contour for contour, area in zip(contours, areas) if area >= mean_number]
 
     centroids = []
@@ -45,21 +47,24 @@ def get_centroinds(green_channel, i):
 
             mask = np.zeros_like(image)
             cv2.drawContours(mask, [contour], -1, color=255, thickness=-1)
-            mean_intensity = cv2.mean(green_channel / 255, mask=mask)[0]
+            mean_intensity = cv2.mean(chosen_channel / 255, mask=mask)[0]
             intensities.append(mean_intensity)
 
     centroids = np.array(centroids)
-    #np.savetxt('centroids1.txt', centroids, delimiter=',', fmt='%d')
     intensities = np.array(intensities)
 
+    #np.savetxt('centroids1.txt', centroids, delimiter=',', fmt='%d')
+    
+    '''
     output_image = image
     output_image = cv2.cvtColor(output_image, cv2.COLOR_GRAY2BGR)
     for c in centroids:
         cv2.circle(output_image, (c[0], c[1]), 7, (0, 0, 255), -1)
-    cv2.imwrite(f'MiddleRes/centroids{i}.png', output_image)
+    cv2.imwrite(f'MiddleRes/centroids.png', output_image)
+    '''
     return centroids, intensities
 
-def get_map(image, i):
+def get_map(image):
     red_channel = image[:, :, 0]
     green_channel = image[:, :, 1]
     blue_channel = image[:, :, 2]
@@ -77,15 +82,23 @@ def get_map(image, i):
     min_intens_arr = [min_red, min_green, min_blue]
     min_intens_index = np.argmin(min_intens_arr)
     chosen_channel = None
+    add_channel_1 = None
+    add_channel_2 = None
 
     if min_intens_index == 0:
         chosen_channel = red_channel
+        add_channel_1 = green_channel
+        add_channel_2 = blue_channel
     elif min_intens_index == 1:
         chosen_channel = green_channel
+        add_channel_1 = red_channel
+        add_channel_2 = blue_channel
     else:
         chosen_channel = blue_channel
+        add_channel_1 = red_channel
+        add_channel_2 = green_channel
 
-    centroids, intensities = get_centroinds(chosen_channel, i)
+    centroids, intensities = get_centroinds(chosen_channel, add_channel_1, add_channel_2)
     x_data = centroids[:, 0]
     y_data = centroids[:, 1]
 
