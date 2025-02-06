@@ -70,33 +70,16 @@ def get_map(image):
     blue_channel = image[:, :, 2]
     height, width = red_channel.shape
 
-    center_x_min = int(width * 0.4)
-    center_x_max = int(width * 0.6)
-    center_y_min = int(height * 0.4)
-    center_y_max = int(height * 0.6)
-
-    min_red = np.min(red_channel[center_x_min:center_x_max, center_y_min:center_y_max])
-    min_green = np.min(green_channel[center_x_min:center_x_max, center_y_min:center_y_max])
-    min_blue = np.min(blue_channel[center_x_min:center_x_max, center_y_min:center_y_max])
-    
-    min_intens_arr = [min_red, min_green, min_blue]
-    min_intens_index = np.argmin(min_intens_arr)
-    chosen_channel = None
-    add_channel_1 = None
-    add_channel_2 = None
-
-    if min_intens_index == 0:
-        chosen_channel = red_channel
-        add_channel_1 = green_channel
-        add_channel_2 = blue_channel
-    elif min_intens_index == 1:
-        chosen_channel = green_channel
-        add_channel_1 = red_channel
-        add_channel_2 = blue_channel
-    else:
-        chosen_channel = blue_channel
-        add_channel_1 = red_channel
-        add_channel_2 = green_channel
+    x_min, x_max = int(width * 0.4), int(width * 0.6)
+    y_min, y_max = int(height * 0.4), int(height * 0.6)
+    min_intensities = [
+        np.min(channel[x_min:x_max, y_min:y_max])
+        for channel in [red_channel, green_channel, blue_channel]
+    ]
+    min_index = np.argmin(min_intensities)
+    chosen_channel = [red_channel, green_channel, blue_channel][min_index]
+    add_channel_1 = [green_channel, blue_channel, red_channel][min_index]
+    add_channel_2 = [blue_channel, red_channel, green_channel][min_index]
 
     centroids, intensities = get_centroinds(chosen_channel, add_channel_1, add_channel_2)
     x_data = centroids[:, 0]
