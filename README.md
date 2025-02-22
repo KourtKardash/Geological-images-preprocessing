@@ -1,2 +1,2 @@
 # Geological-images-preprocessing
-Creates an illumination map for images 
+Methods for preprocessing geological images.
